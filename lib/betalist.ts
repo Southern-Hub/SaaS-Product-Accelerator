@@ -12,6 +12,13 @@ export interface StartupData {
     scrapedAt: string;
 }
 
+export interface StartupPreview {
+    name: string;
+    tagline: string;
+    slug: string;
+    betalistUrl: string;
+}
+
 export async function scrapeBetaList(url: string): Promise<StartupData | null> {
     try {
         // Basic validation to ensure it's a BetaList URL
@@ -26,7 +33,7 @@ export async function scrapeBetaList(url: string): Promise<StartupData | null> {
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch page: ${response.statusText}`);
+            throw new Error(`Failed to fetch page: ${response.statusText} `);
         }
 
         const html = await response.text();
@@ -132,4 +139,73 @@ export function getMockStartupData(): StartupData {
         betalistUrl: "https://betalist.com/startups/flowbase",
         scrapedAt: new Date().toISOString(),
     };
+}
+
+export async function scrapeRecentStartups(limit: number = 5): Promise<StartupPreview[]> {
+    try {
+        const response = await fetch('https://betalist.com', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch BetaList homepage: ${response.statusText}`);
+        }
+
+        const html = await response.text();
+        const $ = cheerio.load(html);
+
+        const startups: StartupPreview[] = [];
+        const seen = new Set<string>();
+
+        // Find all startup links - they follow the pattern /startups/{slug}
+        $('a[href^="/startups/"]').each((_, element) => {
+            if (startups.length >= limit) return false; // Stop after reaching limit
+
+            const href = $(element).attr('href');
+            if (!href) return;
+
+            const slug = href.replace('/startups/', '');
+
+            // Skip if we've already seen this startup
+            if (seen.has(slug)) return;
+            seen.add(slug);
+
+            const name = $(element).text().trim();
+
+            // Skip if name is empty or too short (likely not a startup link)
+            if (!name || name.length < 2) return;
+
+            // Try to find tagline - it's usually the next sibling text or in a nearby element
+            let tagline = '';
+
+            // Try next sibling
+            const nextElement = $(element).next();
+            if (nextElement.length) {
+                tagline = nextElement.text().trim();
+            }
+
+            // If tagline is still empty or too short, try parent's next sibling
+            if (!tagline || tagline.length < 10) {
+                const parentNext = $(element).parent().next();
+                if (parentNext.length) {
+                    tagline = parentNext.text().trim();
+                }
+            }
+
+            startups.push({
+                name,
+                tagline: tagline || 'Discover this startup',
+                slug,
+                betalistUrl: `https://betalist.com/startups/${slug}`,
+            });
+        });
+
+        return startups;
+
+    } catch (error) {
+        console.error('Error scraping recent startups:', error);
+        return [];
+    }
 }

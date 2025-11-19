@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { SearchBar } from "@/components/SearchBar";
+import { WeeklyGallery } from "@/components/WeeklyGallery";
 import { StartupCard } from "@/components/StartupCard";
 import { AnalysisView } from "@/components/AnalysisView";
 import { StartupData } from "@/lib/betalist";
@@ -47,6 +48,13 @@ export default function Home() {
     }
   };
 
+  const handleSelectStartup = (url: string) => {
+    // Directly trigger analysis instead of just filling search bar
+    handleSearch(url);
+    // Scroll to results section
+    window.scrollTo({ top: 500, behavior: 'smooth' });
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-8 md:p-24">
       <div className="max-w-5xl mx-auto space-y-12">
@@ -64,6 +72,9 @@ export default function Home() {
             Identify US-based startups and evaluate their "copycat potential" for the Australian market.
           </p>
         </div>
+
+        {/* Weekly Gallery */}
+        <WeeklyGallery onSelectStartup={handleSelectStartup} />
 
         {/* Search Section */}
         <SearchBar onSearch={handleSearch} isLoading={isLoading} />

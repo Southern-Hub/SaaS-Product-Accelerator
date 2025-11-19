@@ -1,16 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Loader2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SearchBarProps {
     onSearch: (url: string) => Promise<void>;
     isLoading: boolean;
+    initialUrl?: string;
 }
 
-export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
+export function SearchBar({ onSearch, isLoading, initialUrl }: SearchBarProps) {
     const [url, setUrl] = useState("");
+
+    useEffect(() => {
+        if (initialUrl) {
+            setUrl(initialUrl);
+        }
+    }, [initialUrl]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
