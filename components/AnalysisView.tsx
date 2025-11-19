@@ -1,12 +1,38 @@
+import { useState } from "react";
 import { AnalysisResult } from "@/lib/analyzer";
+import { StartupData } from "@/lib/betalist";
 import { cn } from "@/lib/utils";
-import { Code2, Globe2, TrendingUp } from "lucide-react";
+import { Code2, Globe2, TrendingUp, Sparkles, Loader2 } from "lucide-react";
+import { StrategyReport } from "./StrategyReport";
 
 interface AnalysisViewProps {
     analysis: AnalysisResult;
+    startup: StartupData;
 }
 
-export function AnalysisView({ analysis }: AnalysisViewProps) {
+export function AnalysisView({ analysis, startup }: AnalysisViewProps) {
+    const [report, setReport] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateReport = async () => {
+        setIsGenerating(true);
+        try {
+            const response = await fetch('/api/strategy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ startup }),
+            });
+            const data = await response.json();
+            if (data.report) {
+                setReport(data.report);
+            }
+        } catch (error) {
+            console.error("Failed to generate report:", error);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -51,6 +77,32 @@ export function AnalysisView({ analysis }: AnalysisViewProps) {
                     {analysis.summary}
                 </p>
             </div>
+
+            {!report && (
+                <button
+                    onClick={handleGenerateReport}
+                    disabled={isGenerating}
+                    className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                    {isGenerating ? (
+                        <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Generating Strategy Report...
+                        </>
+                    ) : (
+                        <>
+                            <Sparkles className="w-5 h-5" />
+                            Generate AI Product Strategy Report
+                        </>
+                    )}
+                </button>
+            )}
+
+            {report && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <StrategyReport report={report} />
+                </div>
+            )}
         </div>
     );
 }

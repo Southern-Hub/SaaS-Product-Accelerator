@@ -1,4 +1,5 @@
 import { StartupData } from './betalist';
+import { callDeepSeekReasoner } from './deepseek';
 
 export interface AnalysisResult {
     feasibility: {
@@ -17,44 +18,110 @@ export interface AnalysisResult {
     summary: string;
 }
 
+const SYSTEM_PROMPT = `
+You are an expert SaaS strategist and AI product architect. Your task is to analyze a SaaS startup idea and generate a structured viability report.
+
+**Context Defaults:**
+- Target Market: Australia (but consider global potential)
+- Founder Profile: Solo founder, limited budget ($1000), speed-to-market focus.
+- Tech Stack Preference: AWS, GitHub, Copilot, OpenAI.
+
+**Analysis Requirements:**
+Analyze the provided startup idea based on the following criteria and return a JSON object.
+
+1.  **Technical Feasibility:**
+    *   Engineering complexity (1-100 score).
+    *   Required components (frontend, backend, AI, data sources).
+    *   Integration risks.
+
+2.  **Market Desirability:**
+    *   Problem severity and urgency.
+    *   Target segment willingness to pay.
+    *   Market size and competition.
+
+3.  **Business Viability:**
+    *   Monetization potential.
+    *   GTM feasibility for a solo founder.
+    *   Risks (market, execution, legal).
+
+**Output Format:**
+You must return ONLY a valid JSON object with the following structure:
+{
+  "feasibility": {
+    "score": number, // 0-100 (Higher is better/easier)
+    "reasoning": "string"
+  },
+  "desirability": {
+    "score": number, // 0-100 (Higher is better)
+    "reasoning": "string"
+  },
+  "viability": {
+    "score": number, // 0-100 (Higher is better)
+    "reasoning": "string"
+  },
+  "overallScore": number, // 0-100 (Average of the three)
+  "summary": "string" // A concise executive summary (max 200 words)
+}
+`;
+
 export async function analyzeViability(startup: StartupData): Promise<AnalysisResult> {
-    // TODO: Integrate with an LLM (e.g., OpenAI/Gemini) for real analysis.
-    // For now, we simulate the analysis based on heuristics and random variations 
-    // to demonstrate the UI and flow.
+    const { name, tagline, description, topics } = startup;
 
+    const userPrompt = `
+    **Startup Idea:**
+    Name: ${name}
+    Tagline: ${tagline}
+    Description: ${description}
+    Topics: ${topics.join(', ')}
+    `;
+
+    try {
+        const { content } = await callDeepSeekReasoner(SYSTEM_PROMPT, userPrompt);
+
+        // Clean the content to ensure it's valid JSON (remove markdown code blocks if present)
+        const jsonString = content.replace(/```json\n?|\n?```/g, '').trim();
+
+        const result = JSON.parse(jsonString);
+
+        // Validate structure (basic check)
+        if (!result.feasibility || !result.desirability || !result.viability) {
+            throw new Error("Invalid JSON structure from AI response");
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error("AI Analysis Failed:", error);
+
+        // Fallback to heuristics if AI fails (e.g., no API key or timeout)
+        return getFallbackAnalysis(startup);
+    }
+}
+
+function getFallbackAnalysis(startup: StartupData): AnalysisResult {
     const { name, description, topics } = startup;
-
-    // Heuristic: Tech topics might imply higher feasibility complexity
     const isTechHeavy = topics.some(t => ['Developer Tools', 'Artificial Intelligence', 'API'].includes(t));
-
-    // Heuristic: Consumer topics might imply higher desirability in mass markets
     const isConsumer = topics.some(t => ['Productivity', 'User Experience', 'Social Media'].includes(t));
 
-    // Simulate scores
-    const feasibilityScore = isTechHeavy ? 60 : 85; // Harder to copy if tech heavy
-    const desirabilityScore = isConsumer ? 90 : 70; // Higher demand for consumer apps (generalization)
-    const viabilityScore = Math.floor(Math.random() * 30) + 60; // Random between 60-90
-
+    const feasibilityScore = isTechHeavy ? 60 : 85;
+    const desirabilityScore = isConsumer ? 90 : 70;
+    const viabilityScore = Math.floor(Math.random() * 30) + 60;
     const overallScore = Math.round((feasibilityScore + desirabilityScore + viabilityScore) / 3);
 
     return {
         feasibility: {
             score: feasibilityScore,
-            reasoning: isTechHeavy
-                ? `High technical complexity due to reliance on ${topics.join(', ')}. Reverse engineering will require significant R&D.`
-                : "Standard tech stack. Core features can be replicated using off-the-shelf components and modern frameworks.",
+            reasoning: "AI Analysis Unavailable. Estimated based on topic complexity.",
         },
         desirability: {
             score: desirabilityScore,
-            reasoning: isConsumer
-                ? "Strong market demand in Australia for productivity and UX-focused tools. Cultural fit is high."
-                : "Niche market appeal. Requires localization of marketing materials to resonate with Australian businesses.",
+            reasoning: "AI Analysis Unavailable. Estimated based on market segment.",
         },
         viability: {
             score: viabilityScore,
-            reasoning: "Moderate competition in the local market. First-mover advantage is possible if launched within 3 months.",
+            reasoning: "AI Analysis Unavailable. Estimated based on general SaaS benchmarks.",
         },
         overallScore,
-        summary: `Copycat potential for ${name} is ${overallScore > 75 ? 'High' : 'Moderate'}. The concept addresses a clear pain point (${description.substring(0, 50)}...) and has a viable path to market in Australia.`,
+        summary: `(Fallback Analysis) Copycat potential for ${name} is estimated at ${overallScore}. Please configure DeepSeek API for detailed insights.`,
     };
 }

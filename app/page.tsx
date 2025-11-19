@@ -93,7 +93,7 @@ export default function Home() {
               <StartupCard startup={startup} analysis={analysis} isMock={isMock} />
             </div>
             <div className="space-y-8">
-              <AnalysisView analysis={analysis} />
+              <AnalysisView analysis={analysis} startup={startup} />
             </div>
           </div>
         )}
