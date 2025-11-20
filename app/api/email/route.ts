@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { generateEmailTemplate } from '@/lib/emailTemplate';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy instantiation to avoid build-time errors
+function getResendClient() {
+    if (!process.env.RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY is not configured');
+    }
+    return new Resend(process.env.RESEND_API_KEY);
+}
 
 export async function POST(request: Request) {
     try {
@@ -21,19 +27,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Startup name is required' }, { status: 400 });
         }
 
-        // Check if Resend API key is configured
-        if (!process.env.RESEND_API_KEY) {
-            console.error('RESEND_API_KEY is not configured');
-            return NextResponse.json({
-                error: 'Email service is not configured. Please contact support.'
-            }, { status: 500 });
-        }
-
         // Generate HTML email
         const htmlContent = generateEmailTemplate(startupName, report);
 
         console.log('Sending email to:', email);
         console.log('From:', 'onboarding@resend.dev');
+
+        // Get Resend client (lazy instantiation)
+        const resend = getResendClient();
 
         // Send email using Resend
         const { data, error } = await resend.emails.send({
