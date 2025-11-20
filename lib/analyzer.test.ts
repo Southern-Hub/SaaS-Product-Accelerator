@@ -2,26 +2,21 @@ import { analyzeProductComplete, analyzeViability } from './analyzer';
 import { callDeepSeekReasoner } from './deepseek';
 import { getMockStartupData } from './betalist';
 
-// Mock dependencies
+// Mock database module completely (define mocks before jest.mock)
 jest.mock('./deepseek');
 
-// Mock database module completely
-const mockSaveAnalysis = jest.fn().mockResolvedValue(undefined);
-const mockGetAnalysisBySlug = jest.fn().mockResolvedValue(null);
-const mockIsFresh = jest.fn().mockReturnValue(false);
-const mockGetCacheTTL = jest.fn().mockReturnValue(7 * 24 * 60 * 60 * 1000);
-
 jest.mock('./database', () => ({
-    saveAnalysis: mockSaveAnalysis,
-    getAnalysisBySlug: mockGetAnalysisBySlug,
-    isFresh: mockIsFresh,
-    getCacheTTL: mockGetCacheTTL,
+    saveAnalysis: jest.fn().mockResolvedValue(undefined),
+    getAnalysisBySlug: jest.fn().mockResolvedValue(null),
+    isFresh: jest.fn().mockReturnValue(false),
+    getCacheTTL: jest.fn().mockReturnValue(7 * 24 * 60 * 60 * 1000),
 }));
 
 describe('Analyzer', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        mockGetAnalysisBySlug.mockResolvedValue(null);
+        const { getAnalysisBySlug } = require('./database');
+        getAnalysisBySlug.mockResolvedValue(null);
     });
 
     it('should return analysis from complete function', async () => {
@@ -127,7 +122,9 @@ describe('Analyzer', () => {
         expect(result.viability.score).toBe(85);
         expect(result.overallScore).toBe(85);
         expect(callDeepSeekReasoner).toHaveBeenCalled();
-        expect(mockSaveAnalysis).toHaveBeenCalled();
+
+        const { saveAnalysis } = require('./database');
+        expect(saveAnalysis).toHaveBeenCalled();
     });
 
     it('should return fallback analysis when API call fails', async () => {
@@ -137,7 +134,9 @@ describe('Analyzer', () => {
         const result = await analyzeViability(startupData);
 
         expect(result.summary).toContain('(Fallback Analysis)');
-        expect(mockSaveAnalysis).toHaveBeenCalled();
+
+        const { saveAnalysis } = require('./database');
+        expect(saveAnalysis).toHaveBeenCalled();
     });
 
     it('should return fallback analysis when API returns invalid JSON', async () => {
@@ -150,6 +149,8 @@ describe('Analyzer', () => {
         const result = await analyzeViability(startupData);
 
         expect(result.summary).toContain('(Fallback Analysis)');
-        expect(mockSaveAnalysis).toHaveBeenCalled();
+
+        const { saveAnalysis } = require('./database');
+        expect(saveAnalysis).toHaveBeenCalled();
     });
 });
