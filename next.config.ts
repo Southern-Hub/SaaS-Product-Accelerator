@@ -1,12 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
-  images: {
-    unoptimized: true, // Required for static export
-  },
-  // Disable server-side features for static export
   reactStrictMode: true,
+  // Removed output: 'export' to support API routes on Vercel
 };
 
 export default nextConfig;

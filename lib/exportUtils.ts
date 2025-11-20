@@ -4,6 +4,51 @@ import { StartupData } from './betalist';
 import { AnalysisResult } from './analyzer';
 
 /**
+ * Helper function to clone and normalize colors in an element for html2canvas
+ */
+function cloneAndNormalizeColors(element: HTMLElement): HTMLElement {
+    const clone = element.cloneNode(true) as HTMLElement;
+
+    // Get all elements including the clone itself
+    const allElements = [clone, ...Array.from(clone.querySelectorAll('*'))] as HTMLElement[];
+
+    allElements.forEach((el) => {
+        const styles = window.getComputedStyle(el);
+
+        // Convert lab() and other modern color functions to RGB
+        const colorProperties = [
+            'color',
+            'backgroundColor',
+            'borderColor',
+            'borderTopColor',
+            'borderRightColor',
+            'borderBottomColor',
+            'borderLeftColor',
+            'outlineColor'
+        ];
+
+        colorProperties.forEach((prop) => {
+            const value = styles.getPropertyValue(prop);
+            if (value && (value.includes('lab(') || value.includes('lch(') || value.includes('oklab(') || value.includes('oklab('))) {
+                // Get the computed RGB value
+                const tempDiv = document.createElement('div');
+                tempDiv.style[prop as any] = value;
+                document.body.appendChild(tempDiv);
+                const computedValue = window.getComputedStyle(tempDiv).getPropertyValue(prop);
+                document.body.removeChild(tempDiv);
+
+                // Apply the RGB value
+                if (computedValue && computedValue !== value) {
+                    el.style[prop as any] = computedValue;
+                }
+            }
+        });
+    });
+
+    return clone;
+}
+
+/**
  * Generate and download a PDF from an HTML element
  */
 export async function generatePDFFromHTML(element: HTMLElement, filename: string): Promise<void> {
@@ -14,17 +59,34 @@ export async function generatePDFFromHTML(element: HTMLElement, filename: string
 
         console.log('Starting PDF generation for element:', element.tagName);
 
-        // Capture the HTML element as a canvas with improved settings
-        const canvas = await html2canvas(element, {
-            scale: 1.5, // Reduced from 2 for better compatibility
-            useCORS: true,
-            logging: true, // Enable logging to see what's happening
-            allowTaint: false, // Changed to false for better compatibility
-            backgroundColor: '#ffffff',
-        }).catch((err) => {
+        // Clone and normalize colors to avoid lab() color function issues
+        const normalizedElement = cloneAndNormalizeColors(element);
+
+        // Temporarily add to DOM for rendering (hidden)
+        normalizedElement.style.position = 'absolute';
+        normalizedElement.style.left = '-9999px';
+        normalizedElement.style.top = '0';
+        document.body.appendChild(normalizedElement);
+
+        let canvas;
+        try {
+            // Capture the HTML element as a canvas with improved settings
+            canvas = await html2canvas(normalizedElement, {
+                scale: 1.5,
+                useCORS: true,
+                logging: false, // Disable logging for cleaner output
+                allowTaint: false,
+                backgroundColor: '#ffffff',
+            });
+        } catch (err: any) {
             console.error('html2canvas error:', err);
             throw new Error(`Canvas rendering failed: ${err.message || 'Unknown error'}`);
-        });
+        } finally {
+            // Clean up the cloned element
+            if (document.body.contains(normalizedElement)) {
+                document.body.removeChild(normalizedElement);
+            }
+        }
 
         if (!canvas) {
             throw new Error('Canvas generation failed - no canvas returned');
