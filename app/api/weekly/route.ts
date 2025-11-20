@@ -1,20 +1,28 @@
 import { NextResponse } from 'next/server';
-import { scrapeRecentStartups } from '@/lib/betalist';
-import { AppError, ScrapingError } from '@/lib/errors';
+import { scrapeMultiSource } from '@/lib/scrapers/multiSourceScraper';
+import { AppError } from '@/lib/errors';
 
 export const revalidate = 86400; // Cache for 24 hours
 
 export async function GET() {
     try {
-        const startups = await scrapeRecentStartups(5);
+        // Scrape from multiple sources: BetaList, Hacker News, Indie Hackers
+        const products = await scrapeMultiSource({
+            betalist: true,
+            hackernews: true,
+            indiehackers: true,
+            alternativeto: false, // Disabled due to anti-scraping
+            limitPerSource: 5,
+        });
 
-        if (startups.length === 0) {
-            // We could throw an error or just return empty list with a warning
-            console.warn('No startups found for weekly gallery');
-            return NextResponse.json({ startups: [] });
+        if (products.length === 0) {
+            console.warn('No products found from any source');
+            return NextResponse.json({ products: [] });
         }
 
-        return NextResponse.json({ startups });
+        console.log(`Successfully scraped ${products.length} products from multiple sources`);
+
+        return NextResponse.json({ products });
     } catch (error) {
         console.error('Error in /api/weekly:', error);
 
@@ -26,9 +34,9 @@ export async function GET() {
         }
 
         return NextResponse.json({
-            error: 'Failed to fetch weekly startups',
+            error: 'Failed to fetch weekly products',
             code: 'INTERNAL_ERROR',
-            startups: []
+            products: []
         }, { status: 500 });
     }
 }

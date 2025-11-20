@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { scrapeBetaList, getMockStartupData } from '@/lib/betalist';
-import { analyzeViability } from '@/lib/analyzer';
+import { analyzeProductComplete } from '@/lib/analyzer';
 import { AppError, ValidationError, ScrapingError } from '@/lib/errors';
 
 export async function POST(request: Request) {
@@ -26,13 +26,18 @@ export async function POST(request: Request) {
             console.warn('Scraping failed, falling back to mock data');
             startupData = getMockStartupData();
             isMock = true;
-            // Alternatively, we could throw an error here if we don't want fallback
-            // throw new ScrapingError('Failed to scrape startup data');
         }
 
-        const analysis = await analyzeViability(startupData);
+        // Use the unified analysis function
+        const completeAnalysis = await analyzeProductComplete(startupData);
 
-        return NextResponse.json({ startup: startupData, analysis, isMock });
+        // Return complete analysis (frontend can extract what it needs)
+        return NextResponse.json({
+            analysis: completeAnalysis,
+            isMock,
+            // For backward compatibility, include simplified analysis
+            startup: startupData,
+        });
     } catch (error) {
         console.error('API Error:', error);
 

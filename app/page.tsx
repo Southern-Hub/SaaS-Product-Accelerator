@@ -1,20 +1,23 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { WeeklyGallery } from "@/components/WeeklyGallery";
 import { StartupCard } from "@/components/StartupCard";
 import { AnalysisView } from "@/components/AnalysisView";
 import { StartupData } from "@/lib/betalist";
-import { AnalysisResult } from "@/lib/analyzer";
+import { ProductAnalysisComplete } from "@/lib/schemas";
 import { Sparkles } from "lucide-react";
+import { StrategyReport } from "@/components/StrategyReport";
+import { EmailModal } from "@/components/EmailModal";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [startup, setStartup] = useState<StartupData | null>(null);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<ProductAnalysisComplete | null>(null);
   const [isMock, setIsMock] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   const handleSearch = async (url: string) => {
     setIsLoading(true);
@@ -48,6 +51,8 @@ export default function Home() {
     }
   };
 
+
+
   const handleSelectStartup = (url: string) => {
     // Directly trigger analysis instead of just filling search bar
     handleSearch(url);
@@ -73,11 +78,11 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Weekly Gallery */}
-        <WeeklyGallery onSelectStartup={handleSelectStartup} />
-
         {/* Search Section */}
         <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+
+        {/* Weekly Gallery */}
+        <WeeklyGallery onSelectStartup={handleSelectStartup} />
 
         {/* Error Message */}
         {error && (
@@ -88,14 +93,40 @@ export default function Home() {
 
         {/* Results Section */}
         {startup && analysis && (
-          <div className="grid md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="space-y-8">
-              <StartupCard startup={startup} analysis={analysis} isMock={isMock} />
+          <>
+            <div className="grid md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="space-y-8">
+                <StartupCard startup={startup} analysis={analysis} isMock={isMock} executiveSummary={analysis.summary} />
+              </div>
+              <div className="space-y-8">
+                <AnalysisView
+                  analysis={analysis}
+                  startup={startup}
+                />
+              </div>
             </div>
-            <div className="space-y-8">
-              <AnalysisView analysis={analysis} startup={startup} />
-            </div>
-          </div>
+
+            {/* Strategy Report - now included in analysis */}
+            {analysis.markdownReport && startup && (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 mt-8">
+                <StrategyReport
+                  report={analysis.markdownReport}
+                  startupName={startup.name}
+                  onEmailClick={() => setShowEmailModal(true)}
+                />
+              </div>
+            )}
+
+            {/* Email Modal */}
+            {analysis.markdownReport && startup && (
+              <EmailModal
+                isOpen={showEmailModal}
+                onClose={() => setShowEmailModal(false)}
+                report={analysis.markdownReport}
+                startupName={startup.name}
+              />
+            )}
+          </>
         )}
       </div>
     </main>

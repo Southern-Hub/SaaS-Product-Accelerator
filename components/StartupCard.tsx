@@ -1,18 +1,19 @@
 import { StartupData } from "@/lib/betalist";
-import { AnalysisResult } from "@/lib/analyzer";
+import { ProductAnalysisComplete } from "@/lib/schemas";
 import { ExternalLink, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StartupCardProps {
     startup: StartupData;
-    analysis: AnalysisResult;
+    analysis: ProductAnalysisComplete;
     isMock?: boolean;
+    executiveSummary?: string;
 }
 
-export function StartupCard({ startup, analysis, isMock }: StartupCardProps) {
+export function StartupCard({ startup, analysis, isMock, executiveSummary }: StartupCardProps) {
     const scoreColor =
-        analysis.overallScore >= 80 ? "text-green-600 border-green-200 bg-green-50" :
-            analysis.overallScore >= 60 ? "text-yellow-600 border-yellow-200 bg-yellow-50" :
+        analysis.scores.overall >= 80 ? "text-green-600 border-green-200 bg-green-50" :
+            analysis.scores.overall >= 60 ? "text-yellow-600 border-yellow-200 bg-yellow-50" :
                 "text-red-600 border-red-200 bg-red-50";
 
     return (
@@ -30,7 +31,7 @@ export function StartupCard({ startup, analysis, isMock }: StartupCardProps) {
                     <p className="text-lg text-slate-600 font-medium">{startup.tagline}</p>
                 </div>
                 <div className={cn("flex flex-col items-center justify-center p-4 rounded-xl border-2", scoreColor)}>
-                    <span className="text-3xl font-bold">{analysis.overallScore}</span>
+                    <span className="text-3xl font-bold">{analysis.scores.overall}</span>
                     <span className="text-xs uppercase tracking-wider font-semibold opacity-80">Viability</span>
                 </div>
             </div>
@@ -38,6 +39,15 @@ export function StartupCard({ startup, analysis, isMock }: StartupCardProps) {
             <p className="text-slate-600 mb-6 leading-relaxed">
                 {startup.description}
             </p>
+
+            {executiveSummary && (
+                <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6 shadow-sm">
+                    <h4 className="text-lg font-semibold text-slate-900 mb-2">Executive Summary</h4>
+                    <p className="text-slate-600 leading-relaxed">
+                        {executiveSummary}
+                    </p>
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-2 mb-6">
                 {startup.topics.map((topic) => (

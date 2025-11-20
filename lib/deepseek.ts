@@ -25,10 +25,22 @@ interface DeepSeekResponse {
     };
 }
 
+export interface DeepSeekResult {
+    content: string;
+    reasoning?: string;
+    tokenUsage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+    };
+    processingTimeMs: number;
+}
+
 export async function callDeepSeekReasoner(
     systemPrompt: string,
     userPrompt: string
-): Promise<{ content: string; reasoning?: string }> {
+): Promise<DeepSeekResult> {
+    const startTime = Date.now();
     const apiKey = process.env.DEEPSEEK_API_KEY;
 
     if (!apiKey) {
@@ -68,9 +80,17 @@ export async function callDeepSeekReasoner(
             throw new Error("Invalid response format from DeepSeek API");
         }
 
+        const processingTime = Date.now() - startTime;
+
         return {
             content: choice.message.content,
             reasoning: choice.message.reasoning_content,
+            tokenUsage: data.usage ? {
+                promptTokens: data.usage.prompt_tokens,
+                completionTokens: data.usage.completion_tokens,
+                totalTokens: data.usage.total_tokens,
+            } : undefined,
+            processingTimeMs: processingTime,
         };
     } catch (error) {
         console.error("DeepSeek API Call Failed:", error);

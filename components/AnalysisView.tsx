@@ -1,36 +1,19 @@
-import { useState } from "react";
-import { AnalysisResult } from "@/lib/analyzer";
+import { ProductAnalysisComplete } from "@/lib/schemas";
 import { StartupData } from "@/lib/betalist";
 import { cn } from "@/lib/utils";
-import { Code2, Globe2, TrendingUp, Sparkles, Loader2 } from "lucide-react";
-import { StrategyReport } from "./StrategyReport";
+import { Code2, Globe2, TrendingUp, Download } from "lucide-react";
+import { generateCSVFromAnalysis } from "@/lib/exportUtils";
 
 interface AnalysisViewProps {
-    analysis: AnalysisResult;
+    analysis: ProductAnalysisComplete;
     startup: StartupData;
 }
 
 export function AnalysisView({ analysis, startup }: AnalysisViewProps) {
-    const [report, setReport] = useState<string | null>(null);
-    const [isGenerating, setIsGenerating] = useState(false);
 
-    const handleGenerateReport = async () => {
-        setIsGenerating(true);
-        try {
-            const response = await fetch('/api/strategy', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ startup }),
-            });
-            const data = await response.json();
-            if (data.report) {
-                setReport(data.report);
-            }
-        } catch (error) {
-            console.error("Failed to generate report:", error);
-        } finally {
-            setIsGenerating(false);
-        }
+    const handleExportCSV = () => {
+        const filename = `${startup.name.replace(/\s+/g, '-').toLowerCase()}-analysis.csv`;
+        generateCSVFromAnalysis(startup, analysis, filename);
     };
 
     return (
@@ -46,8 +29,8 @@ export function AnalysisView({ analysis, startup }: AnalysisViewProps) {
                     <ScoreRow
                         icon={<Code2 className="w-5 h-5 text-blue-600" />}
                         label="Technical Feasibility"
-                        score={analysis.feasibility.score}
-                        reasoning={analysis.feasibility.reasoning}
+                        score={analysis.scores.feasibility}
+                        reasoning={`Complexity: ${analysis.technicalFeasibility.engineeringComplexity}/5. ${analysis.technicalFeasibility.estimatedDevTime}`}
                         color="bg-blue-600"
                     />
 
@@ -55,8 +38,8 @@ export function AnalysisView({ analysis, startup }: AnalysisViewProps) {
                     <ScoreRow
                         icon={<Globe2 className="w-5 h-5 text-purple-600" />}
                         label="Market Desirability"
-                        score={analysis.desirability.score}
-                        reasoning={analysis.desirability.reasoning}
+                        score={analysis.scores.desirability}
+                        reasoning={analysis.problemAnalysis.coreProblem}
                         color="bg-purple-600"
                     />
 
@@ -64,45 +47,21 @@ export function AnalysisView({ analysis, startup }: AnalysisViewProps) {
                     <ScoreRow
                         icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
                         label="Business Viability"
-                        score={analysis.viability.score}
-                        reasoning={analysis.viability.reasoning}
+                        score={analysis.scores.viability}
+                        reasoning={analysis.businessModel.pricingModel}
                         color="bg-emerald-600"
                     />
                 </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm">
-                <h4 className="text-lg font-semibold text-slate-900 mb-2">Executive Summary</h4>
-                <p className="text-slate-600 leading-relaxed">
-                    {analysis.summary}
-                </p>
-            </div>
-
-            {!report && (
-                <button
-                    onClick={handleGenerateReport}
-                    disabled={isGenerating}
-                    className="w-full py-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                    {isGenerating ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Generating Strategy Report...
-                        </>
-                    ) : (
-                        <>
-                            <Sparkles className="w-5 h-5" />
-                            Generate AI Product Strategy Report
-                        </>
-                    )}
-                </button>
-            )}
-
-            {report && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <StrategyReport report={report} />
-                </div>
-            )}
+            {/* CSV Export Button */}
+            <button
+                onClick={handleExportCSV}
+                className="w-full py-3 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-xl font-medium shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
+            >
+                <Download className="w-4 h-4" />
+                Export Analysis as CSV
+            </button>
         </div>
     );
 }
