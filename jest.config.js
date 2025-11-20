@@ -12,6 +12,6 @@ module.exports = {
         '^.+\\.(js|jsx|mjs)$': 'babel-jest',
     },
     transformIgnorePatterns: [
-        'node_modules/(?!(cheerio|undici)/)',
+        'node_modules/(?!(cheerio|undici|uuid)/)',
     ],
 };

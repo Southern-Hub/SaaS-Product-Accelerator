@@ -1,33 +1,133 @@
-import { analyzeViability } from './analyzer';
+import { analyzeProductComplete, analyzeViability } from './analyzer';
 import { callDeepSeekReasoner } from './deepseek';
 import { getMockStartupData } from './betalist';
 
 // Mock dependencies
 jest.mock('./deepseek');
 
+// Mock database module completely
+const mockSaveAnalysis = jest.fn().mockResolvedValue(undefined);
+const mockGetAnalysisBySlug = jest.fn().mockResolvedValue(null);
+const mockIsFresh = jest.fn().mockReturnValue(false);
+const mockGetCacheTTL = jest.fn().mockReturnValue(7 * 24 * 60 * 60 * 1000);
+
+jest.mock('./database', () => ({
+    saveAnalysis: mockSaveAnalysis,
+    getAnalysisBySlug: mockGetAnalysisBySlug,
+    isFresh: mockIsFresh,
+    getCacheTTL: mockGetCacheTTL,
+}));
+
 describe('Analyzer', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockGetAnalysisBySlug.mockResolvedValue(null);
     });
 
-    it('should return AI analysis result when API call succeeds', async () => {
-        const mockAnalysis = {
-            feasibility: { score: 80, reasoning: 'Good' },
-            desirability: { score: 90, reasoning: 'Great' },
-            viability: { score: 85, reasoning: 'Solid' },
-            overallScore: 85,
+    it('should return analysis from complete function', async () => {
+        const mockCompleteResponse = {
+            scores: {
+                feasibility: 80,
+                desirability: 90,
+                viability: 85,
+                overall: 85,
+            },
             summary: 'Excellent startup',
+            problemAnalysis: {
+                coreProblem: 'Test problem',
+                whoExperiencesIt: 'Users',
+                whyNow: 'Market timing',
+                severityScore: 4,
+                marketGap: 'Gap exists',
+            },
+            targetMarket: {
+                primaryNiche: 'Test niche',
+                segmentSize: '$50M',
+                whyThisSegment: 'Good fit',
+                economicBuyer: 'Buyer',
+                endUser: 'User',
+                urgencyScore: 4,
+                willingnessToPayScore: 4,
+            },
+            competition: {
+                competitionLevel: 'Medium',
+                similarProducts: [],
+                directCompetitors: [],
+                indirectCompetitors: [],
+                alternatives: [],
+                competitiveGap: 'Gap',
+                copyRisk: 'Low',
+            },
+            technicalFeasibility: {
+                engineeringComplexity: 3,
+                estimatedDevTime: '4-6 weeks',
+                requiredComponents: {
+                    frontend: 'Next.js',
+                    backend: 'API',
+                    database: 'PostgreSQL',
+                    ai: 'None',
+                    infrastructure: 'Vercel',
+                    integrations: [],
+                },
+                dataSources: [],
+                integrationRisk: 'Low',
+                primaryRisks: [],
+                regulatoryConcerns: [],
+            },
+            gtmStrategy: {
+                timeToGTM: '6 weeks',
+                simplicityScore: 3,
+                distributionChannels: [],
+                acquisitionPathway: [],
+                timeToFirstRevenue: 'Month 2',
+            },
+            businessModel: {
+                pricingModel: 'Subscription',
+                pricingTiers: [],
+                marginPotential: '70%',
+                automationPotential: 'Medium',
+                monetizationRisks: [],
+            },
+            risks: {
+                market: { score: 2, notes: 'Low' },
+                execution: { score: 2, notes: 'Low' },
+                reliability: { score: 2, notes: 'Low' },
+                legal: { score: 2, notes: 'Low' },
+                aiDependency: { score: 2, notes: 'Low' },
+            },
+            buildPath: {
+                mvpScope: [],
+                deferToV2: [],
+                weeklyRoadmap: [],
+                agentRecommendations: {
+                    useAgentsFor: [],
+                    humanJudgmentFor: [],
+                },
+            },
+            recommendation: {
+                verdict: 'BUILD',
+                confidence: 85,
+                rationale: 'Good opportunity',
+                preRevenueKPIs: [],
+                nextSteps: [],
+            },
+            markdownReport: '# Test Report',
         };
 
         (callDeepSeekReasoner as jest.Mock).mockResolvedValue({
-            content: JSON.stringify(mockAnalysis),
+            content: JSON.stringify(mockCompleteResponse),
+            processingTimeMs: 1000,
         });
 
         const startupData = getMockStartupData();
         const result = await analyzeViability(startupData);
 
-        expect(result).toEqual(mockAnalysis);
+        expect(result.feasibility.score).toBe(80);
+        expect(result.desirability.score).toBe(90);
+        expect(result.viability.score).toBe(85);
+        expect(result.overallScore).toBe(85);
         expect(callDeepSeekReasoner).toHaveBeenCalled();
+        expect(mockSaveAnalysis).toHaveBeenCalled();
     });
 
     it('should return fallback analysis when API call fails', async () => {
@@ -37,17 +137,19 @@ describe('Analyzer', () => {
         const result = await analyzeViability(startupData);
 
         expect(result.summary).toContain('(Fallback Analysis)');
-        expect(result.feasibility.reasoning).toContain('AI Analysis Unavailable');
+        expect(mockSaveAnalysis).toHaveBeenCalled();
     });
 
     it('should return fallback analysis when API returns invalid JSON', async () => {
         (callDeepSeekReasoner as jest.Mock).mockResolvedValue({
             content: 'Invalid JSON',
+            processingTimeMs: 1000,
         });
 
         const startupData = getMockStartupData();
         const result = await analyzeViability(startupData);
 
         expect(result.summary).toContain('(Fallback Analysis)');
+        expect(mockSaveAnalysis).toHaveBeenCalled();
     });
 });
